@@ -29,16 +29,17 @@ class Puppet::Provider::MacProfile::MacProfile < Puppet::ResourceApi::SimpleProv
   end
 
   def get(_context)
-    plistxml = Puppet::Util::Execution.execute(['/usr/bin/profiles', 'show', '-type', 'configuration', '-output', 'stdout-xml'])
-    plist = Puppet::Util::Plist.parse_plist(plistxml)
+    raw_profiles_xml = Puppet::Util::Execution.execute(['/usr/bin/profiles', 'show', '-type', 'configuration', '-output', 'stdout-xml'])
+    raw_profiles_hash = Puppet::Util::Plist.parse_plist(raw_profiles_xml)
 
     profiles = []
-    unless plist[0].nil?
-      plist[0].each do |item|
+    unless (raw_profiles = raw_profiles_hash.values[0]).nil?
+      raw_profiles.each do |raw_profile|
         profile = {
-          name: item['ProfileIdentifier'],
           ensure: 'present',
-          profile: item,
+          name: raw_profile['ProfileIdentifier'],
+          uuid: raw_profile['ProfileUUID'],
+          profile: raw_profile,
         }
         profiles.push(profile)
       end
