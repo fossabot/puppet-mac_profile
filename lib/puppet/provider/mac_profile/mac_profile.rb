@@ -38,7 +38,7 @@ class Puppet::Provider::MacProfile::MacProfile < Puppet::ResourceApi::SimpleProv
         profile = {
           ensure: 'present',
           name: raw_profile['ProfileIdentifier'],
-          uuid: raw_profile['ProfileUUID'],
+          uuid: raw_profile['ProfileUUID'].upcase,
           profile: raw_profile,
         }
         profiles.push(profile)
