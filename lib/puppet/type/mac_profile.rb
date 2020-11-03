@@ -29,7 +29,7 @@ EOS
       default: 'present',
     },
     name: {
-      type:      'Pattern[/^[a-zA-Z0-9][a-zA-Z0-9\-\.]+[a-zA-Z0-9]$/]',
+      type:      'Pattern[/^[a-z0-9][a-z0-9\-\.]+[a-z0-9]$/]',
       desc:      'Unique identifier of the profile you want to manage.',
       behaviour: :namevar,
     },

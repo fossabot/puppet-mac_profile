@@ -32,6 +32,14 @@ RSpec.describe 'the mac_profile type' do
         )
       }.to raise_error Puppet::ResourceError
     end
+
+    it 'throws an error if name contains uppercase letters' do
+      expect {
+        Puppet::Type.type(:mac_profile).new(
+          name: 'com.Vanagandr42.wifi_example',
+        )
+      }.to raise_error Puppet::ResourceError
+    end
   end
 
   context 'with uuid set' do
