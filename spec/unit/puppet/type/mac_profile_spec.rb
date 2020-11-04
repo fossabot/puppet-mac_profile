@@ -62,32 +62,5 @@ RSpec.describe 'the mac_profile type' do
         )
       }.not_to raise_error
     end
-
-    it 'throws an error if uuid is too short' do
-      expect {
-        Puppet::Type.type(:mac_profile).new(
-          name: name,
-          uuid: '06CF9449-3ED9-4249-AD28-55A0DAEC26D',
-        )
-      }.to raise_error Puppet::ResourceError
-    end
-
-    it 'throws an error if uuid is too long' do
-      expect {
-        Puppet::Type.type(:mac_profile).new(
-          name: name,
-          uuid: '06CF9449-3ED9-4249-AD28-55A0DAEC26DA1',
-        )
-      }.to raise_error Puppet::ResourceError
-    end
-
-    it 'throws an error if uuid is not hex' do
-      expect {
-        Puppet::Type.type(:mac_profile).new(
-          name: name,
-          uuid: '06CG9449-3ED9-4249-AD28-55A0DAEC26DA1',
-        )
-      }.to raise_error Puppet::ResourceError
-    end
   end
 end
