@@ -2,10 +2,10 @@
 
 require 'puppet/resource_api/simple_provider'
 
+UUID_REGEX = %r{^[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}$}
+
 # Implementation for the mac_profile type using the Resource API.
 class Puppet::Provider::MacProfile::MacProfile < Puppet::ResourceApi::SimpleProvider
-  UUID_REGEXP = '/^[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}$/'.freeze
-
   def initialize
     require 'puppet/util/plist'
     require 'puppet/util/execution'
@@ -14,7 +14,7 @@ class Puppet::Provider::MacProfile::MacProfile < Puppet::ResourceApi::SimpleProv
 
   def canonicalize(_context, resources)
     resources.each do |resource|
-      resource[:uuid] = resource[:uuid].upcase if !resource[:uuid].nil? && resource[:uuid].match(UUID_REGEXP)
+      resource[:uuid] = resource[:uuid].upcase if !resource[:uuid].nil? && resource[:uuid].match(UUID_REGEX)
 
       unless resource[:mobileconfig].nil?
         # TODO: transform mobileconfigstring to hash plist
@@ -40,13 +40,13 @@ class Puppet::Provider::MacProfile::MacProfile < Puppet::ResourceApi::SimpleProv
         profile = {
           ensure: 'present',
           name: raw_profile['ProfileIdentifier'],
-          uuid: raw_profile['ProfileUUID'].match(UUID_REGEXP) ? raw_profile['ProfileUUID'].upcase : raw_profile['ProfileUUID'],
+          uuid: raw_profile['ProfileUUID'].match(UUID_REGEX) ? raw_profile['ProfileUUID'].upcase : raw_profile['ProfileUUID'],
           profile: raw_profile,
         }
         profiles.push(profile)
       end
     end
-    return profiles
+    profiles
   end
 
   def create(context, name, should)
