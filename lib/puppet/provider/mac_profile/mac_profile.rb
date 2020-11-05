@@ -2,8 +2,6 @@
 
 require 'puppet/resource_api/simple_provider'
 
-UUID_REGEX = %r{^[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}$}
-
 # Implementation for the mac_profile type using the Resource API.
 class Puppet::Provider::MacProfile::MacProfile < Puppet::ResourceApi::SimpleProvider
   def initialize
@@ -12,9 +10,9 @@ class Puppet::Provider::MacProfile::MacProfile < Puppet::ResourceApi::SimpleProv
     # require 'cfpropertylist'
   end
 
-  def canonicalize(_context, resources)
+  def canonicalize(context, resources)
     resources.each do |resource|
-      resource[:uuid] = resource[:uuid].upcase if !resource[:uuid].nil? && resource[:uuid].match(UUID_REGEX)
+      resource[:uuid] = resource[:uuid].upcase if !resource[:uuid].nil? && resource[:uuid].match(context.type.attributes[:uuid][:format])
 
       unless resource[:mobileconfig].nil?
         # TODO: transform mobileconfigstring to hash plist
@@ -30,17 +28,17 @@ class Puppet::Provider::MacProfile::MacProfile < Puppet::ResourceApi::SimpleProv
     end
   end
 
-  def get(_context)
+  def get(context)
     raw_profiles_xml = Puppet::Util::Execution.execute(['/usr/bin/profiles', 'show', '-type', 'configuration', '-output', 'stdout-xml'])
     raw_profiles_hash = Puppet::Util::Plist.parse_plist(raw_profiles_xml)
 
     profiles = []
-    unless (raw_profiles = raw_profiles_hash.values[0]).nil?
+    unless raw_profiles_hash.nil? || (raw_profiles = raw_profiles_hash.values[0]).nil?
       raw_profiles.each do |raw_profile|
         profile = {
           ensure: 'present',
           name: raw_profile['ProfileIdentifier'],
-          uuid: raw_profile['ProfileUUID'].match(UUID_REGEX) ? raw_profile['ProfileUUID'].upcase : raw_profile['ProfileUUID'],
+          uuid: raw_profile['ProfileUUID'].match(context.type.attributes[:uuid][:format]) ? raw_profile['ProfileUUID'].upcase : raw_profile['ProfileUUID'],
           profile: raw_profile,
         }
         profiles.push(profile)
@@ -59,8 +57,8 @@ class Puppet::Provider::MacProfile::MacProfile < Puppet::ResourceApi::SimpleProv
     create_or_update(context, name, should)
   end
 
-  def create_or_update(context, name, should)
-    context.notice("Creating or updating '#{name}' with #{should.inspect}")
+  def create_or_update(_context, _name, _should)
+    # context.notice("Creating or updating '#{name}' with #{should.inspect}")
   end
 
   def delete(context, name)

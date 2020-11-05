@@ -39,9 +39,10 @@ EOS
       behaviour: :parameter,
     },
     uuid: {
-      type: 'String',
-      desc: 'PayloadUUID of the the profile. It is computed from the checksum of the mobileconfig if absent. '\
-              'A mobileconfig is only imported if the UUID is different from the one in the current profile.',
+      type:   'String',
+      desc:   'PayloadUUID of the the profile. It is computed from the checksum of the mobileconfig if absent. '\
+                'A mobileconfig is only imported if the UUID is different from the one in the current profile.',
+      format: %r{^[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}$},
     },
     profile: {
       type:      'Hash',
