@@ -1,6 +1,7 @@
 ---
-os: linux
-dist: xenial
+os:
+  - osx
+dist: 
 language: ruby
 cache: bundler
 before_install:
@@ -13,10 +14,11 @@ before_install:
   - gem --version
   - bundle -v
 script:
-  - 'bundle exec rake $CHECK'
+  - 'SIMPLECOV=yes bundle exec rake $CHECK'
 bundler_args: --without system_tests
 rvm:
   - 2.5.7
+  - 2.6.3
 stages:
   - static
   - spec
@@ -38,6 +40,9 @@ jobs:
       env: PUPPET_GEM_VERSION="~> 6.0" CHECK=parallel_spec
       rvm: 2.5.7
       stage: spec
+    -
+      env: PUPPET_GEM_VERSION="~> 4.0" CHECK=parallel_spec
+      rvm: 2.1.9
     -
       env: DEPLOY_TO_FORGE=yes
       stage: deploy
