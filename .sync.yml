@@ -10,7 +10,7 @@
     - 2.6.3
   includes:
     - env: PUPPET_GEM_VERSION="~> 4.0" CHECK=parallel_spec
-      rvm: 2.1.
+      rvm: 2.1.9
   remove_branches:
     - master
   branches:
