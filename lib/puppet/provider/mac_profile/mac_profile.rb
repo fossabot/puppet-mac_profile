@@ -81,9 +81,8 @@ class Puppet::Provider::MacProfile::MacProfile < Puppet::ResourceApi::SimpleProv
       ## /usr/bin/security cms -S -N "encryptprofiles.vanagandr42.com" -i example.encrypted.mobileconfig -o example.encrypted.signed.mobileconfig
     end
 
-    if should[:mode] == :profiles
-      # TODO: Execute profiles command if mode is set to profiles
-    end
+    return unless should[:mode] == :profiles
+    # TODO: Execute profiles command if mode is set to profiles
   end
 
   def delete(context, name)
