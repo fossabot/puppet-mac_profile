@@ -41,7 +41,7 @@ EOS
       default:   'profiles',
     },
     mobileconfig: {
-      type:      'String',
+      type:      'Variant[Struct, String]',
       desc:      'Content of the profile in mobileconfig xml plist format.',
       behaviour: :parameter,
     },
