@@ -10,7 +10,7 @@ class Puppet::Provider::MacProfile::MacProfile < Puppet::ResourceApi::SimpleProv
   def canonicalize(context, resources)
     resources.each do |resource|
       unless resource[:mobileconfig].nil?
-        resource[:mobileconfig] = Puppet::Util::Plist.parse_plist(resource[:mobileconfig])
+        resource[:mobileconfig] = Puppet::Util::Plist.parse_plist(resource[:mobileconfig]) if resource[:mobileconfig].is_a?(String)
 
         resource[:mobileconfig]['PayloadContent'].each do |payload|
           unless payload.key?('PayloadUUID')
