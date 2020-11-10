@@ -71,29 +71,45 @@ class Puppet::Provider::MacProfile::MacProfile < Puppet::ResourceApi::SimpleProv
     return context.err("Invalid resource '#{name}' because UUID in property and mobileconfig differ") if should[:uuid] != mobileconfig['PayloadUUID']
 
     dir_path = File.expand_path(File.join(Puppet[:vardir], 'mobileconfigs'))
-    file_path = File.join(dir_path, name + '.mobileconfig')
+    file_name = name
+    file_path = File.join(dir_path, file_name + '.mobileconfig')
     FileUtils.mkdir(dir_path, mode: 0o600) unless Dir.exist?(dir_path)
     Puppet::Util::Plist.write_plist_file(mobileconfig, file_path)
     FileUtils.chmod(0o600, file_path)
 
     if should.key?(:certificate)
       if should[:encrypt] == true
-        # TODO: Encrypt mobileconfig, delete source
-        ## /usr/libexec/mdmclient encrypt "encryptprofiles.vanagandr42.com" example.mobileconfig
+        # /usr/libexec/mdmclient encrypt "encryptprofiles.vanagandr42.com" example.mobileconfig
+        Puppet::Util::Execution.execute(['/usr/libexec/mdmclient', 'encrypt', should[:certificate], file_path])
+        FileUtils.rm(file_path)
+        file_name << '.encrypted'
+        file_path = File.join(dir_path, name + '.mobileconfig')
+        return context.err("Encryption failed for resource '#{name}'") unless File.exist?(file_path)
+        # TODO: file mode
       end
 
-      # TODO: Sign mobileconfig, delete source
-      ## /usr/bin/security cms -S -N "encryptprofiles.vanagandr42.com" -i example.encrypted.mobileconfig -o example.encrypted.signed.mobileconfig
+      # /usr/bin/security cms -S -N "encryptprofiles.vanagandr42.com" -i example.encrypted.mobileconfig -o example.encrypted.signed.mobileconfig
+      file_out_path = File.join(dir_path, file_name + '.signed.mobileconfig')
+      Puppet::Util::Execution.execute(['/usr/bin/security', 'cms', '-S', '-N', should[:certificate], '-i', file_path, '-o', file_out_path])
+      FileUtils.rm(file_path)
+      file_name << '.signed'
+      file_path = File.join(dir_path, name + '.mobileconfig')
+      return context.err("Signing failed for resource '#{name}'") unless File.exist?(file_path)
+      # TODO: file mode
     end
 
-    return unless should[:mode] == :profiles
-    # TODO: Execute profiles command if mode is set to profiles
+    Puppet::Util::Execution.execute(['/usr/bin/profiles', 'install', '-type', 'configuration', '-path', file_path])
   end
 
   def delete(context, name)
     context.notice("Deleting '#{name}'")
 
-    # TODO: Create mobileconfig with file from name (+ encrypted/signed as supplement)
-    # TODO: Execute profiles command if mode is set to profiles
+    dir_path = File.expand_path(File.join(Puppet[:vardir], 'mobileconfigs'))
+    ['.mobileconfig', '.signed.mobileconfig', '.encrypted.signed.mobileconfig'].each do |suffix|
+      file_path = File.join(dir_path, name + suffix)
+      FileUtils.rm(file_path) if File.exist?(file_path)
+    end
+
+    Puppet::Util::Execution.execute(['/usr/bin/profiles', 'remove', '-type', 'configuration', '-identifier', name])
   end
 end

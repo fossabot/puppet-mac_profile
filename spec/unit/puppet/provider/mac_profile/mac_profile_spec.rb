@@ -34,6 +34,7 @@ RSpec.describe Puppet::Provider::MacProfile::MacProfile do
     allow(typedef).to receive(:attributes).with(no_args).and_return(uuid: { format: %r{^.*$} })
     allow(FileUtils).to receive(:mkdir)
     allow(FileUtils).to receive(:chmod)
+    allow(FileUtils).to receive(:rm)
     allow(Dir).to receive(:exist?)
     allow(Puppet::Util::Execution).to receive(:execute)
     allow(Puppet::Util::Plist).to receive(:write_plist_file)
@@ -395,11 +396,13 @@ RSpec.describe Puppet::Provider::MacProfile::MacProfile do
   describe '#get' do
     it 'processes no profiles' do
       expect(Puppet::Util::Execution).to receive(:execute).with(array_including('/usr/bin/profiles', 'show')).and_return('')
+
       expect(provider.get(context)).to eq []
     end
 
     it 'processes profile' do
       expect(Puppet::Util::Execution).to receive(:execute).with(array_including('/usr/bin/profiles', 'show')).and_return(single_profile)
+
       expect(provider.get(context)).to match_array(
         [
           a_hash_including(
@@ -418,6 +421,7 @@ RSpec.describe Puppet::Provider::MacProfile::MacProfile do
     it 'processes profiles' do
       allow(typedef).to receive(:attributes).with(no_args).and_return(uuid: { format: %r{^$} })
       expect(Puppet::Util::Execution).to receive(:execute).with(array_including('/usr/bin/profiles', 'show')).and_return(multiple_profiles)
+
       expect(provider.get(context)).to match_array(
         [
           a_hash_including(
@@ -454,22 +458,6 @@ RSpec.describe Puppet::Provider::MacProfile::MacProfile do
       )
     end
   end
-
-  # describe 'create(context, name, should)' do
-  #   it 'creates the resource' do
-  #     expect(context).to receive(:notice).with(%r{\ACreating 'a'})
-
-  #     provider.create(context, 'a', name: 'a', ensure: 'present')
-  #   end
-  # end
-
-  # describe 'update(context, name, should)' do
-  #   it 'updates the resource' do
-  #     expect(context).to receive(:notice).with(%r{\AUpdating 'foo'})
-
-  #     provider.update(context, 'foo', name: 'foo', ensure: 'present')
-  #   end
-  # end
 
   describe 'create_or_update(context, name, should)' do
     it 'fails if no mobileconfig is defined' do
@@ -551,11 +539,10 @@ RSpec.describe Puppet::Provider::MacProfile::MacProfile do
       provider.create_or_update(context, 'com.vanagandr42.minimal', should)
     end
 
-    it 'succeeds to create a mobileconfig file' do
+    it 'succeeds to create a profile' do
       should = {
         ensure:       'present',
         name:         'com.vanagandr42.minimal',
-        mode:         :file,
         mobileconfig: {
           'PayloadIdentifier' => 'com.vanagandr42.minimal',
           'PayloadUUID'       => '228420C8-9D51-4171-BD98-A37A7E8906C1',
@@ -563,6 +550,7 @@ RSpec.describe Puppet::Provider::MacProfile::MacProfile do
         uuid:         '228420C8-9D51-4171-BD98-A37A7E8906C1',
       }
 
+      expect(context).to receive(:notice).with(%r{\ACreating 'com.vanagandr42.minimal'})
       expect(Dir).to receive(:exist?).with('/dev/null/mobileconfigs').and_return(false)
       expect(FileUtils).to receive(:mkdir).with('/dev/null/mobileconfigs', mode: 0o600)
       expect(Puppet::Util::Plist).to receive(:write_plist_file).with(
@@ -570,15 +558,48 @@ RSpec.describe Puppet::Provider::MacProfile::MacProfile do
         '/dev/null/mobileconfigs/com.vanagandr42.minimal.mobileconfig',
       )
       expect(FileUtils).to receive(:chmod).with(0o600, '/dev/null/mobileconfigs/com.vanagandr42.minimal.mobileconfig')
-      provider.create_or_update(context, 'com.vanagandr42.minimal', should)
+      expect(Puppet::Util::Execution).to receive(:execute).with(array_including('/usr/bin/profiles', 'install', '-path', '/dev/null/mobileconfigs/com.vanagandr42.minimal.mobileconfig'))
+
+      provider.create(context, 'com.vanagandr42.minimal', should)
+    end
+
+    it 'succeeds to update a profile' do
+      should = {
+        ensure:       'present',
+        name:         'com.vanagandr42.minimal',
+        mobileconfig: {
+          'PayloadIdentifier' => 'com.vanagandr42.minimal',
+          'PayloadUUID'       => '228420C8-9D51-4171-BD98-A37A7E8906C1',
+        },
+        uuid:         '228420C8-9D51-4171-BD98-A37A7E8906C1',
+      }
+
+      expect(context).to receive(:notice).with(%r{\AUpdating 'com.vanagandr42.minimal'})
+      expect(Dir).to receive(:exist?).with('/dev/null/mobileconfigs').and_return(true)
+      expect(FileUtils).not_to receive(:mkdir).with('/dev/null/mobileconfigs')
+      expect(Puppet::Util::Plist).to receive(:write_plist_file).with(
+        a_hash_including('PayloadIdentifier' => 'com.vanagandr42.minimal'),
+        '/dev/null/mobileconfigs/com.vanagandr42.minimal.mobileconfig',
+      )
+      expect(FileUtils).to receive(:chmod).with(0o600, '/dev/null/mobileconfigs/com.vanagandr42.minimal.mobileconfig')
+      expect(Puppet::Util::Execution).to receive(:execute).with(array_including('/usr/bin/profiles', 'install', '-path', '/dev/null/mobileconfigs/com.vanagandr42.minimal.mobileconfig'))
+
+      provider.update(context, 'com.vanagandr42.minimal', should)
     end
   end
 
   describe 'delete(context, name)' do
-    it 'deletes the resource' do
-      expect(context).to receive(:notice).with(%r{\ADeleting 'foo'})
+    it 'succeeds to update a profile' do
+      expect(context).to receive(:notice).with(%r{\ADeleting 'com.vanagandr42.minimal'})
+      expect(File).to receive(:exist?).with('/dev/null/mobileconfigs/com.vanagandr42.minimal.mobileconfig').and_return(false)
+      expect(FileUtils).not_to receive(:rm).with('/dev/null/mobileconfigs/com.vanagandr42.minimal.mobileconfig')
+      expect(File).to receive(:exist?).with('/dev/null/mobileconfigs/com.vanagandr42.minimal.signed.mobileconfig').and_return(true)
+      expect(FileUtils).to receive(:rm).with('/dev/null/mobileconfigs/com.vanagandr42.minimal.signed.mobileconfig')
+      expect(File).to receive(:exist?).with('/dev/null/mobileconfigs/com.vanagandr42.minimal.encrypted.signed.mobileconfig').and_return(false)
+      expect(FileUtils).not_to receive(:rm).with('/dev/null/mobileconfigs/com.vanagandr42.minimal.encrypted.signed.mobileconfig')
+      expect(Puppet::Util::Execution).to receive(:execute).with(array_including('/usr/bin/profiles', 'remove', '-identifier', 'com.vanagandr42.minimal'))
 
-      provider.delete(context, 'foo')
+      provider.delete(context, 'com.vanagandr42.minimal')
     end
   end
 end
