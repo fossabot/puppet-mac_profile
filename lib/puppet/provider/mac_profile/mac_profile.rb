@@ -9,20 +9,25 @@ require 'puppet/util/plist'
 class Puppet::Provider::MacProfile::MacProfile < Puppet::ResourceApi::SimpleProvider
   def canonicalize(context, resources)
     resources.each do |resource|
-      if resource.key?(:mobileconfig) && resource[:mobileconfig].is_a?(String)
-        parsed_mobileconfig = Puppet::Util::Plist.parse_plist(resource[:mobileconfig])
-        resource[:mobileconfig] = parsed_mobileconfig if !parsed_mobileconfig.nil? && parsed_mobileconfig.is_a?(Hash)
-      end
+      if resource.key?(:mobileconfig)
+        mobileconfig = resource[:mobileconfig].is_a?(Puppet::Pops::Types::PSensitiveType::Sensitive) ? resource[:mobileconfig].unwrap : resource[:mobileconfig]
+        parsed_mobileconfig = Puppet::Util::Plist.parse_plist(mobileconfig) if mobileconfig.is_a?(String)
+        mobileconfig = parsed_mobileconfig if !parsed_mobileconfig.nil? && parsed_mobileconfig.is_a?(Hash)
 
-      if resource.key?(:mobileconfig) && resource[:mobileconfig].is_a?(Hash)
-        resource[:mobileconfig]['PayloadContent'].each do |payload|
-          payload['PayloadUUID'] = Puppet::Util::UuidV5.from_hash(payload) unless payload.key?('PayloadUUID')
-          payload['PayloadUUID'] = payload['PayloadUUID'].upcase if payload['PayloadUUID'].match(context.type.attributes[:uuid][:format])
+        if mobileconfig.is_a?(Hash)
+          mobileconfig['PayloadContent'].each do |payload|
+            payload['PayloadUUID'] = Puppet::Util::UuidV5.from_hash(payload) unless payload.key?('PayloadUUID')
+            payload['PayloadUUID'] = payload['PayloadUUID'].upcase if payload['PayloadUUID'].match(context.type.attributes[:uuid][:format])
+          end
+
+          unless mobileconfig.key?('PayloadUUID')
+            mobileconfig['PayloadUUID'] = resource.key?(:uuid) ? resource[:uuid] : Puppet::Util::UuidV5.from_hash(mobileconfig) # rubocop:disable Metrics/BlockNesting
+          end
+          resource[:uuid] = mobileconfig['PayloadUUID'] unless resource.key?(:uuid)
+          mobileconfig['PayloadUUID'] = mobileconfig['PayloadUUID'].upcase if mobileconfig['PayloadUUID'].match(context.type.attributes[:uuid][:format])
+
+          resource[:mobileconfig] = resource[:mobileconfig].is_a?(Puppet::Pops::Types::PSensitiveType::Sensitive) ? Puppet::Pops::Types::PSensitiveType::Sensitive.new(mobileconfig) : mobileconfig
         end
-
-        resource[:mobileconfig]['PayloadUUID'] = resource.key?(:uuid) ? resource[:uuid] : Puppet::Util::UuidV5.from_hash(resource[:mobileconfig]) unless resource[:mobileconfig].key?('PayloadUUID')
-        resource[:uuid] = resource[:mobileconfig]['PayloadUUID'] unless resource.key?(:uuid)
-        resource[:mobileconfig]['PayloadUUID'] = resource[:mobileconfig]['PayloadUUID'].upcase if resource[:mobileconfig]['PayloadUUID'].match(context.type.attributes[:uuid][:format])
       end
 
       resource[:uuid] = resource[:uuid].upcase if resource.key?(:uuid) && resource[:uuid].match(context.type.attributes[:uuid][:format])
@@ -60,14 +65,15 @@ class Puppet::Provider::MacProfile::MacProfile < Puppet::ResourceApi::SimpleProv
 
   def create_or_update(context, name, should)
     return context.err("Invalid resource '#{name}' because 'mobileconfig' is missing") unless should.key?(:mobileconfig)
-    return context.err("Invalid resource '#{name}' because 'mobileconfig' has wrong format") unless should[:mobileconfig].is_a?(Hash)
-    return context.err("Invalid resource '#{name}' because name in property and identifier in mobileconfig differ") if name != should[:mobileconfig]['PayloadIdentifier']
-    return context.err("Invalid resource '#{name}' because UUID in property and mobileconfig differ") if should[:uuid] != should[:mobileconfig]['PayloadUUID']
+    mobileconfig = should[:mobileconfig].is_a?(Puppet::Pops::Types::PSensitiveType::Sensitive) ? should[:mobileconfig].unwrap : should[:mobileconfig]
+    return context.err("Invalid resource '#{name}' because 'mobileconfig' has wrong format") unless mobileconfig.is_a?(Hash)
+    return context.err("Invalid resource '#{name}' because name in property and identifier in mobileconfig differ") if name != mobileconfig['PayloadIdentifier']
+    return context.err("Invalid resource '#{name}' because UUID in property and mobileconfig differ") if should[:uuid] != mobileconfig['PayloadUUID']
 
     dir_path = File.expand_path(File.join(Puppet[:vardir], 'mobileconfigs'))
     file_path = File.join(dir_path, name + '.mobileconfig')
     FileUtils.mkdir(dir_path, mode: 0o600) unless Dir.exist?(dir_path)
-    Puppet::Util::Plist.write_plist_file(should[:mobileconfig], file_path)
+    Puppet::Util::Plist.write_plist_file(mobileconfig, file_path)
     FileUtils.chmod(0o600, file_path)
 
     if should.key?(:certificate)

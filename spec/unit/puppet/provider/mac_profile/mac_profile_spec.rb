@@ -8,6 +8,15 @@ require 'puppet/provider/mac_profile/mac_profile'
 RSpec.describe Puppet::Provider::MacProfile::MacProfile do
   subject(:provider) { described_class.new }
 
+  Sensitive = Puppet::Pops::Types::PSensitiveType::Sensitive
+  RSpec::Matchers.define :match_sensitive do |expected|
+    include RSpec::Matchers::Composable
+
+    match do |actual|
+      actual.is_a?(Sensitive) && values_match?(expected, actual.unwrap)
+    end
+  end
+
   single_profile = File.read(File.expand_path(File.join(File.dirname(__FILE__), '../../data', 'single_profile.plist')))
   multiple_profiles = File.read(File.expand_path(File.join(File.dirname(__FILE__), '../../data', 'multiple_profiles.plist')))
   minimal_mobileconfig = File.read(File.expand_path(File.join(File.dirname(__FILE__), '../../data', 'minimal.mobileconfig')))
@@ -55,6 +64,26 @@ RSpec.describe Puppet::Provider::MacProfile::MacProfile do
       )
     end
 
+    it 'takes uuid from sensitive mobileconfig if no uuid property is defined' do
+      resource = {
+        ensure:       'present',
+        name:         'com.vanagandr42.minimal',
+        mobileconfig: Sensitive.new(minimal_with_lowercase_uuid_mobileconfig),
+      }
+
+      allow(typedef).to receive(:attributes).with(no_args).and_return(uuid: { format: %r{^$} })
+      expect(provider.canonicalize(context, [resource])).to match_array(
+        [
+          a_hash_including(
+            ensure:       'present',
+            name:         'com.vanagandr42.minimal',
+            mobileconfig: match_sensitive(a_hash_including('PayloadUUID' => '228420c8-9d51-4171-bd98-a37a7e8906c1')),
+            uuid:         '228420c8-9d51-4171-bd98-a37a7e8906c1',
+          ),
+        ],
+      )
+    end
+
     it 'takes uuid from mobileconfig if no uuid property is defined and capitalizes if format matches' do
       resource = {
         ensure:       'present',
@@ -89,6 +118,27 @@ RSpec.describe Puppet::Provider::MacProfile::MacProfile do
             ensure:       'present',
             name:         'com.vanagandr42.minimal',
             mobileconfig: a_hash_including('PayloadUUID' => '7aa4c897-43d1-49f7-8f9d-394d671458aa'),
+            uuid:         '7aa4c897-43d1-49f7-8f9d-394d671458aa',
+          ),
+        ],
+      )
+    end
+
+    it 'takes uuid from uuid property if it is not defined in sensitive mobileconfig' do
+      resource = {
+        ensure:       'present',
+        name:         'com.vanagandr42.minimal',
+        mobileconfig: Sensitive.new(minimal_without_uuid_mobileconfig),
+        uuid:         '7aa4c897-43d1-49f7-8f9d-394d671458aa',
+      }
+
+      allow(typedef).to receive(:attributes).with(no_args).and_return(uuid: { format: %r{^$} })
+      expect(provider.canonicalize(context, [resource])).to match_array(
+        [
+          a_hash_including(
+            ensure:       'present',
+            name:         'com.vanagandr42.minimal',
+            mobileconfig: match_sensitive(a_hash_including('PayloadUUID' => '7aa4c897-43d1-49f7-8f9d-394d671458aa')),
             uuid:         '7aa4c897-43d1-49f7-8f9d-394d671458aa',
           ),
         ],
@@ -158,6 +208,25 @@ RSpec.describe Puppet::Provider::MacProfile::MacProfile do
       )
     end
 
+    it 'generates uuid if uuid is not defined as property and in sensitive mobileconfig' do
+      resource = {
+        ensure:       'present',
+        name:         'com.vanagandr42.minimal',
+        mobileconfig: Sensitive.new(minimal_without_uuid_mobileconfig),
+      }
+
+      expect(provider.canonicalize(context, [resource])).to match_array(
+        [
+          a_hash_including(
+            ensure:       'present',
+            name:         'com.vanagandr42.minimal',
+            mobileconfig: match_sensitive(a_hash_including('PayloadUUID' => '60B33304-6EF1-5AE3-AE20-C587DCC94D70')),
+            uuid:         '60B33304-6EF1-5AE3-AE20-C587DCC94D70',
+          ),
+        ],
+      )
+    end
+
     it 'generates all uuids if uuids are not defined in mobileconfig' do
       resource = {
         ensure:       'present',
@@ -181,7 +250,32 @@ RSpec.describe Puppet::Provider::MacProfile::MacProfile do
       )
     end
 
-    it 'checks a complex example' do
+    it 'generates all uuids if uuids are not defined in sensitive mobileconfig' do
+      resource = {
+        ensure:       'present',
+        name:         'com.vanagandr42.minimal',
+        mobileconfig: Sensitive.new(minimal_without_uuids_mobileconfig),
+      }
+
+      expect(provider.canonicalize(context, [resource])).to match_array(
+        [
+          a_hash_including(
+            ensure:       'present',
+            name:         'com.vanagandr42.minimal',
+            mobileconfig:
+              match_sensitive(
+                a_hash_including(
+                  'PayloadUUID'    => 'EE8C237B-568D-5119-AF5A-D2FF942D5F41',
+                  'PayloadContent' => match_array([a_hash_including('PayloadUUID' => 'CB0EE02C-4FF8-5E6B-A433-3764A87FE148')]),
+                ),
+              ),
+            uuid:         'EE8C237B-568D-5119-AF5A-D2FF942D5F41',
+          ),
+        ],
+      )
+    end
+
+    it 'checks a complex mobileconfig' do
       resource = {
         ensure:       'present',
         name:         'com.vanagandr42.example',
@@ -219,7 +313,7 @@ RSpec.describe Puppet::Provider::MacProfile::MacProfile do
       )
     end
 
-    it 'checks the same complex example, but elements are ordered differently' do
+    it 'checks the same complex mobileconfig, but elements are ordered differently' do
       resource = {
         ensure:       'present',
         name:         'com.vanagandr42.example',
@@ -256,6 +350,46 @@ RSpec.describe Puppet::Provider::MacProfile::MacProfile do
         ],
       )
     end
+  end
+
+  it 'checks a sensitive complex mobileconfig' do
+    resource = {
+      ensure:       'present',
+      name:         'com.vanagandr42.example',
+      mobileconfig: Sensitive.new(example_mobileconfig),
+    }
+
+    expect(provider.canonicalize(context, [resource])).to match_array(
+      [
+        a_hash_including(
+          ensure:       'present',
+          name:         'com.vanagandr42.example',
+          mobileconfig:
+            match_sensitive(
+              a_hash_including(
+                'PayloadUUID'    => 'FEBC2F47-C520-5DCE-A29B-FB5BCF6B3854',
+                'PayloadContent' => match_array(
+                  [
+                    a_hash_including(
+                      'PayloadIdentifier' => 'com.vanagandr42.example.wifi1',
+                      'PayloadUUID'       => 'FB096D71-25B9-418B-82CB-FB9BD0707B23',
+                    ),
+                    a_hash_including(
+                      'PayloadIdentifier' => 'com.vanagandr42.example.wifi2',
+                      'PayloadUUID'       => 'F171D057-CEF8-5F3D-9338-4350EA131BC6',
+                    ),
+                    a_hash_including(
+                      'PayloadIdentifier' => 'com.vanagandr42.example.payload3',
+                      'PayloadUUID'       => 'C05EA2DF-AA6E-5040-9522-9009627506F3',
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          uuid:         'FEBC2F47-C520-5DCE-A29B-FB5BCF6B3854',
+        ),
+      ],
+    )
   end
 
   describe '#get' do
@@ -386,6 +520,20 @@ RSpec.describe Puppet::Provider::MacProfile::MacProfile do
           'PayloadIdentifier' => 'com.vanagandr42.minimal',
           'PayloadUUID'       => '228420C8-9D51-4171-BD98-A37A7E8906C1',
         },
+        uuid:         '228420C8-9D51-4171-BD98-A37A7E8906C1',
+      }
+
+      provider.create_or_update(context, 'com.vanagandr42.minimal', should)
+    end
+
+    it 'succeeds if name & uuid in resource and sensitive mobileconfig are the same' do
+      should = {
+        ensure:       'present',
+        name:         'com.vanagandr42.minimal',
+        mobileconfig: Sensitive.new(
+          'PayloadIdentifier' => 'com.vanagandr42.minimal',
+          'PayloadUUID'       => '228420C8-9D51-4171-BD98-A37A7E8906C1',
+        ),
         uuid:         '228420C8-9D51-4171-BD98-A37A7E8906C1',
       }
 

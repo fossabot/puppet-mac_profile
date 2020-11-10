@@ -41,8 +41,9 @@ EOS
       default:   'profiles',
     },
     mobileconfig: {
-      type:      'Sensitive[Variant[Hash, String]]',
-      desc:      'Content of the profile in mobileconfig xml plist format.',
+      type:      'Variant[Hash, String, Sensitive[Hash], Sensitive[String]]',
+      desc:      'Content of the profile in mobileconfig xml plist format. ´Sensitive´ type can be used when the '\
+                  'mobileconfig contains secrets.',
       behaviour: :parameter,
     },
     uuid: {
