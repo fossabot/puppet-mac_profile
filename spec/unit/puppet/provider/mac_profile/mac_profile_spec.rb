@@ -482,6 +482,17 @@ RSpec.describe Puppet::Provider::MacProfile::MacProfile do
       provider.create_or_update(context, 'com.vanagandr42.minimal', should)
     end
 
+    it 'fails if mobileconfig has invalid format' do
+      should = {
+        ensure: 'present',
+        name:   'com.vanagandr42.minimal',
+        mobileconfig: 'This is invalid!',
+      }
+
+      expect(context).to receive(:err)
+      provider.create_or_update(context, 'com.vanagandr42.minimal', should)
+    end
+
     it 'fails if name in resource and identifier in mobileconfig are not the same' do
       should = {
         ensure:       'present',
