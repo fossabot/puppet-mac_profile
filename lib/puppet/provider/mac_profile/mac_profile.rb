@@ -83,9 +83,9 @@ class Puppet::Provider::MacProfile::MacProfile < Puppet::ResourceApi::SimpleProv
         Puppet::Util::Execution.execute(['/usr/libexec/mdmclient', 'encrypt', should[:certificate], file_path])
         FileUtils.rm(file_path)
         file_name << '.encrypted'
-        file_path = File.join(dir_path, name + '.mobileconfig')
+        file_path = File.join(dir_path, file_name + '.mobileconfig')
         return context.err("Encryption failed for resource '#{name}'") unless File.exist?(file_path)
-        # TODO: file mode
+        FileUtils.chmod(0o600, file_path)
       end
 
       # /usr/bin/security cms -S -N "encryptprofiles.vanagandr42.com" -i example.encrypted.mobileconfig -o example.encrypted.signed.mobileconfig
@@ -93,9 +93,9 @@ class Puppet::Provider::MacProfile::MacProfile < Puppet::ResourceApi::SimpleProv
       Puppet::Util::Execution.execute(['/usr/bin/security', 'cms', '-S', '-N', should[:certificate], '-i', file_path, '-o', file_out_path])
       FileUtils.rm(file_path)
       file_name << '.signed'
-      file_path = File.join(dir_path, name + '.mobileconfig')
+      file_path = File.join(dir_path, file_name + '.mobileconfig')
       return context.err("Signing failed for resource '#{name}'") unless File.exist?(file_path)
-      # TODO: file mode
+      FileUtils.chmod(0o600, file_path)
     end
 
     Puppet::Util::Execution.execute(['/usr/bin/profiles', 'install', '-type', 'configuration', '-path', file_path])
