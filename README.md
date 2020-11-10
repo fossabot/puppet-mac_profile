@@ -11,10 +11,10 @@
 
 ## Description
 
-This module provides basic functionality for macOS profiles using the 
-mobileconfig format. This can be used to define mobileconfigs in Puppet
-using templates which can then be used to create, update and delete profiles
-on computers running macOS.
+This module provides basic functionality for macOS profiles via the 
+mobileconfig format. A mobileconfig which is created in Puppet (e.g. with a 
+template) can be used to install, update and remove a profile on a macOS 
+client.
 
 ## Setup
 
@@ -24,7 +24,7 @@ Apart from (obviously) installing and removing profiles, this module writes
 the mobileconfig files to the Puppet cache directory (e.g. 
 `/opt/puppetlabs/puppet/cache/mobileconfigs`). These files can be used to install
 a profile manually if the `install` verb of the profiles command is not supported 
-by macOS anymore.
+by macOS anymore (starting with Big Sur).
 
 ### Beginning with mac_profile
 
@@ -43,19 +43,19 @@ cannot be extracted again completely from the client. It is obvious why when
 you consider passwords and keys which can be configured using profiles.
 
 Therefore a workaround is needed to find out if the profile currently installed 
-is the same one as in the mobileconfig in the Puppet catalog. This module 
+on the client is the same one as in the mobileconfig in the Puppet catalog. This module 
 diverts the `PayloadUUID` in the mobileconfig to achieve that: If both are the 
-same the profile is considered as up-to-date, if they do not match the profile 
+same the profile is considered to be up-to-date, if they do not match the profile 
 will be updated with the values in the mobileconfig.
 
 There are three ways to manage the UUID:
-* It can be defined in the mobileconfig like it is normally done as 
-`PayloadUUID`.
+* It can be defined in the mobileconfig as `PayloadUUID` (like it is normally 
+done.)
 * It can be defined in the Puppet resource using the `uuid` parameter. In this 
 case `PayloadUUID` must be removed from the mobileconfig.
 * It can be neither defined in the Puppet resource nor as `PayloadUUID` in the 
 mobileconfig. Here the UUID is generated automatically from a checksum of the 
-mobileconfig. This is the recommended methods because changes in the 
+mobileconfig. This is the recommended method because changes in the 
 mobileconfig are picked up automatically.
 
 This module can be used both in priviliged and unprivileged mode:
@@ -67,11 +67,11 @@ the Sensitive data type:
 ```ruby
 mac_profile { 'com.acme.wifi' }
   ensure       => present,
-  mobileconfig => Sensitve(epp('profile/module/com.acme.wifi.mobileconfig.epp')),
+  mobileconfig => Sensitive(epp('profile/module/com.acme.wifi.mobileconfig.epp')),
 }
 ```
 
-If there is a suitable certificate in the client's keycahin (public & private 
+If there is a suitable certificate in the client's keychain (public & private 
 key), this can be used to sign the mobileconfig:
 ```ruby
 mac_profile { 'com.acme.wifi' }
