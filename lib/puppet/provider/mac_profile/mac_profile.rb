@@ -9,25 +9,23 @@ require 'puppet/util/plist'
 class Puppet::Provider::MacProfile::MacProfile < Puppet::ResourceApi::SimpleProvider
   def canonicalize(context, resources)
     resources.each do |resource|
-      unless resource[:mobileconfig].nil?
-        resource[:mobileconfig] = Puppet::Util::Plist.parse_plist(resource[:mobileconfig]) if resource[:mobileconfig].is_a?(String)
+      if resource.key?(:mobileconfig) && resource[:mobileconfig].is_a?(String)
+        parsed_mobileconfig = Puppet::Util::Plist.parse_plist(resource[:mobileconfig])
+        resource[:mobileconfig] = parsed_mobileconfig if !parsed_mobileconfig.nil? && parsed_mobileconfig.is_a?(Hash)
+      end
 
+      if resource.key?(:mobileconfig) && resource[:mobileconfig].is_a?(Hash)
         resource[:mobileconfig]['PayloadContent'].each do |payload|
-          unless payload.key?('PayloadUUID')
-            payload['PayloadUUID'] = Puppet::Util::UuidV5.from_hash(payload)
-          end
+          payload['PayloadUUID'] = Puppet::Util::UuidV5.from_hash(payload) unless payload.key?('PayloadUUID')
           payload['PayloadUUID'] = payload['PayloadUUID'].upcase if payload['PayloadUUID'].match(context.type.attributes[:uuid][:format])
         end
-        unless resource[:mobileconfig].key?('PayloadUUID')
-          resource[:mobileconfig]['PayloadUUID'] = resource.key?(:uuid) ? resource[:uuid] : Puppet::Util::UuidV5.from_hash(resource[:mobileconfig])
-        end
-        unless resource.key?(:uuid)
-          resource[:uuid] = resource[:mobileconfig]['PayloadUUID']
-        end
+
+        resource[:mobileconfig]['PayloadUUID'] = resource.key?(:uuid) ? resource[:uuid] : Puppet::Util::UuidV5.from_hash(resource[:mobileconfig]) unless resource[:mobileconfig].key?('PayloadUUID')
+        resource[:uuid] = resource[:mobileconfig]['PayloadUUID'] unless resource.key?(:uuid)
         resource[:mobileconfig]['PayloadUUID'] = resource[:mobileconfig]['PayloadUUID'].upcase if resource[:mobileconfig]['PayloadUUID'].match(context.type.attributes[:uuid][:format])
       end
 
-      resource[:uuid] = resource[:uuid].upcase if !resource[:uuid].nil? && resource[:uuid].match(context.type.attributes[:uuid][:format])
+      resource[:uuid] = resource[:uuid].upcase if resource.key?(:uuid) && resource[:uuid].match(context.type.attributes[:uuid][:format])
     end
   end
 
@@ -61,7 +59,8 @@ class Puppet::Provider::MacProfile::MacProfile < Puppet::ResourceApi::SimpleProv
   end
 
   def create_or_update(context, name, should)
-    return context.err("Invalid resource '#{name}' because 'mobileconfig' is missing") if should[:mobileconfig].nil?
+    return context.err("Invalid resource '#{name}' because 'mobileconfig' is missing") unless should.key?(:mobileconfig)
+    return context.err("Invalid resource '#{name}' because 'mobileconfig' has wrong format") unless should[:mobileconfig].is_a?(Hash)
     return context.err("Invalid resource '#{name}' because name in property and identifier in mobileconfig differ") if name != should[:mobileconfig]['PayloadIdentifier']
     return context.err("Invalid resource '#{name}' because UUID in property and mobileconfig differ") if should[:uuid] != should[:mobileconfig]['PayloadUUID']
 
